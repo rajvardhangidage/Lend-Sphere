@@ -1,0 +1,12 @@
+{
+  "name": "fintech-lending-platform-frontend",
+  "version": "1.0.0",
+  "description": "Reactive Web UI for FinTech Micro-Lending Platform",
+  "scripts": {
+    "dev": "npx serve -s . -l 3000",
+    "start": "npx serve -s . -l 3000"
+  },
+  "keywords": ["fintech", "lending", "microservices", "frontend"],
+  "author": "Rajvardhan",
+  "license": "MIT"
+}

@@ -1,0 +1,34 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: loan-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/loandb}
+    username: ${DB_USERNAME:lending}
+    password: ${DB_PASSWORD:lending_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-development-only-change-me-in-production}

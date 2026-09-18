@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lendiq — Micro-Lending FinTech Platform</title>
+  <meta name="description" content="A modern digital lending and credit platform featuring instant underwriting, flexible repayment schedules, and real-time transaction management." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>" />
+  <link rel="stylesheet" href="css/design-system.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Main Sticky Navigation Bar -->
+    <header class="app-header" id="app-header"></header>
+
+    <!-- Main Content Container -->
+    <main class="app-main">
+      <!-- Platform Business Metrics Bar -->
+      <section class="stats-grid" id="stats-banner">
+        <div class="glass-panel stat-card">
+          <div class="stat-label">
+            <span>Platform Capital</span>
+            <span class="pulse-indicator"></span>
+          </div>
+          <div class="stat-value mono">$2.5M+</div>
+          <div class="stat-subtext">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Available Lending Pool
+          </div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-label">
+            <span>Active Session</span>
+            <span class="badge badge-purple" id="session-role-badge">GUEST</span>
+          </div>
+          <div class="stat-value" id="session-user-display" style="font-size:1.1rem; padding-top:4px;">Not Signed In</div>
+          <div class="stat-subtext" id="session-status-subtext" style="color:var(--text-muted);">
+            Select a profile to begin
+          </div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-label">
+            <span>Interest Rates</span>
+            <span class="badge badge-info">Competitive</span>
+          </div>
+          <div class="stat-value mono" style="font-size:1.4rem;">From 12.5%</div>
+          <div class="stat-subtext">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            Fixed Annual Percentage Rate
+          </div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-label">
+            <span>Processing Speed</span>
+            <span class="badge badge-success">Instant</span>
+          </div>
+          <div class="stat-value mono" style="font-size:1.4rem;">&lt; 60 Seconds</div>
+          <div class="stat-subtext">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Automated Underwriting
+          </div>
+        </div>
+      </section>
+
+      <!-- Dynamic Views Container -->
+      <div id="views-container">
+        <section id="view-marketplace" class="view-panel active"></section>
+        <section id="view-my-loans" class="view-panel"></section>
+        <section id="view-payments" class="view-panel"></section>
+        <section id="view-underwriting" class="view-panel"></section>
+        <section id="view-notifications" class="view-panel"></section>
+        <section id="view-profile" class="view-panel"></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Main JavaScript App Bootstrapper -->
+  <script type="module">
+    import { state } from './js/state.js';
+    import { Navbar } from './js/components/navbar.js';
+    import { LoanView } from './js/views/loan-view.js';
+    import { PaymentView } from './js/views/payment-view.js';
+    import { OfficerView } from './js/views/officer-view.js';
+    import { NotificationView } from './js/views/notification-view.js';
+    import { CustomerView } from './js/views/customer-view.js';
+
+    // Elements
+    const headerEl = document.getElementById('app-header');
+    const userDisplay = document.getElementById('session-user-display');
+    const roleBadge = document.getElementById('session-role-badge');
+    const statusSubtext = document.getElementById('session-status-subtext');
+
+    // Render Navigation
+    const updateNav = () => {
+      Navbar.render(headerEl);
+
+      if (state.isAuthenticated() && state.user) {
+        userDisplay.innerText = state.user.email;
+        roleBadge.innerText = state.user.role || 'CUSTOMER';
+        roleBadge.className = state.isOfficerOrAdmin() ? 'badge badge-success' : 'badge badge-info';
+        statusSubtext.innerText = 'Authenticated with JWT Token';
+        statusSubtext.style.color = 'var(--primary)';
+      } else {
+        userDisplay.innerText = 'Guest User';
+        roleBadge.innerText = 'GUEST';
+        roleBadge.className = 'badge badge-muted';
+        statusSubtext.innerText = 'Select Admin, Officer, or Customer to begin';
+        statusSubtext.style.color = 'var(--text-muted)';
+      }
+    };
+
+    // Render Current Active View
+    const renderActiveView = () => {
+      // Hide all panels
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+
+      const tab = state.activeTab;
+      const targetPanel = document.getElementById(`view-${tab}`);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+
+        switch (tab) {
+          case 'marketplace':
+            LoanView.renderMarketplace(targetPanel);
+            break;
+          case 'my-loans':
+            LoanView.renderMyLoans(targetPanel);
+            break;
+          case 'payments':
+            PaymentView.render(targetPanel);
+            break;
+          case 'underwriting':
+            OfficerView.render(targetPanel);
+            break;
+          case 'notifications':
+            NotificationView.render(targetPanel);
+            break;
+          case 'profile':
+            CustomerView.render(targetPanel);
+            break;
+        }
+      }
+
+      updateNav();
+    };
+
+    // Subscribe to state changes
+    state.subscribe('authChange', () => {
+      updateNav();
+      renderActiveView();
+    });
+
+    state.subscribe('tabChange', () => {
+      renderActiveView();
+    });
+
+    // Initial load
+    updateNav();
+    renderActiveView();
+  </script>
+</body>
+</html>
