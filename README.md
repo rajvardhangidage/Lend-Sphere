@@ -1,119 +1,111 @@
 # FinTech Lending Platform
 
-[![Java 17](https://img.shields.io/badge/Java-17-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/17/)
-[![Spring Boot 3.4.5](https://img.shields.io/badge/Spring_Boot-3.4.5-6DB33F?style=flat&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Spring Cloud 2024.0.2](https://img.shields.io/badge/Spring_Cloud-2024.0.2-6DB33F?style=flat&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
-[![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Apache Kafka 3.8.1](https://img.shields.io/badge/Apache_Kafka-3.8.1-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis 7](https://img.shields.io/badge/Redis-7-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
-[![Docker Compose](https://img.shields.io/badge/Docker_Compose-v2-2496ED?style=flat&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=flat&logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/17/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-6DB33F?style=flat&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2024.0.2-6DB33F?style=flat&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-3.8.1-231F20?style=flat&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2-2496ED?style=flat&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-An event-driven digital lending backend that automates the end-to-end consumer credit lifecycle — from borrower registration and KYC management to rule-based loan origination, amortized installment scheduling, and idempotent payment processing with asynchronous notifications.
+A microservices-based digital lending system that handles borrower onboarding, loan product applications, risk-based approvals, automated repayment schedule calculations, and idempotent payment processing with event-driven notifications.
 
----
+## Architecture
 
-## Architecture Overview
+The system consists of 5 domain services behind an API Gateway, with isolated PostgreSQL databases per service, Redis caching for the loan catalog, and Apache Kafka for asynchronous event handling.
 
 ```mermaid
 flowchart TD
-    Client(["Web Client / Browser<br><code>:3000</code>"])
-    Gateway["API Gateway<br><code>:8080</code> (Spring Cloud Gateway)"]
+    Client["Browser / Client (:3000)"]
+    Gateway["API Gateway (:8080)"]
 
-    subgraph CoreServices["Domain Microservices"]
-        Auth["Auth Service<br><code>:8081</code>"]
-        Customer["Customer Service<br><code>:8082</code>"]
-        Loan["Loan Service<br><code>:8083</code>"]
-        Payment["Payment Service<br><code>:8084</code>"]
-        Notification["Notification Service<br><code>:8085</code>"]
+    subgraph Services ["Backend Services"]
+        Auth["Auth Service (:8081)"]
+        Customer["Customer Service (:8082)"]
+        Loan["Loan Service (:8083)"]
+        Payment["Payment Service (:8084)"]
+        Notification["Notification Service (:8085)"]
     end
 
-    subgraph DataTier["Data Persistence & Caching"]
-        DB_Auth[(PostgreSQL<br><code>authdb</code>)]
-        DB_Cust[(PostgreSQL<br><code>customerdb</code>)]
-        DB_Loan[(PostgreSQL<br><code>loandb</code>)]
-        DB_Pay[(PostgreSQL<br><code>paymentdb</code>)]
-        DB_Notif[(PostgreSQL<br><code>notificationdb</code>)]
-        RedisCache[("Redis 7<br><code>loan-products:active</code>")]
+    subgraph Storage ["Databases & Cache"]
+        DB_Auth[("PostgreSQL: authdb")]
+        DB_Cust[("PostgreSQL: customerdb")]
+        DB_Loan[("PostgreSQL: loandb")]
+        DB_Pay[("PostgreSQL: paymentdb")]
+        DB_Notif[("PostgreSQL: notificationdb")]
+        RedisCache[("Redis: loan-products:active")]
     end
 
-    subgraph Broker["Event Streaming (Apache Kafka 3.8.1)"]
-        TopicLoan["Topic: <code>loan.events</code><br>(3 Partitions)"]
-        TopicPay["Topic: <code>payment.events</code><br>(3 Partitions)"]
+    subgraph Messaging ["Apache Kafka (KRaft)"]
+        TopicLoan["loan.events"]
+        TopicPay["payment.events"]
     end
 
-    Client -->|HTTP / REST| Gateway
+    Client -->|"HTTP / REST"| Gateway
 
-    Gateway -->|/api/v1/auth/**| Auth
-    Gateway -->|/api/v1/customers/**| Customer
-    Gateway -->|/api/v1/loans/**| Loan
-    Gateway -->|/api/v1/payments/**| Payment
-    Gateway -->|/api/v1/notifications/**| Notification
+    Gateway -->|"/api/v1/auth/**"| Auth
+    Gateway -->|"/api/v1/customers/**"| Customer
+    Gateway -->|"/api/v1/loans/**"| Loan
+    Gateway -->|"/api/v1/payments/**"| Payment
+    Gateway -->|"/api/v1/notifications/**"| Notification
 
-    Auth -->|Flyway / JPA| DB_Auth
-    Customer -->|Flyway / JPA| DB_Cust
-    Loan -->|Flyway / JPA| DB_Loan
-    Loan -->|Cache-Aside (10m TTL)| RedisCache
-    Payment -->|Flyway / JPA| DB_Pay
-    Notification -->|Flyway / JPA| DB_Notif
+    Auth --> DB_Auth
+    Customer --> DB_Cust
+    Loan --> DB_Loan
+    Loan -->|"Cache (10m TTL)"| RedisCache
+    Payment --> DB_Pay
+    Notification --> DB_Notif
 
-    Loan -.->|Publish: LOAN_APPROVED / REJECTED| TopicLoan
-    Payment -.->|Publish: PAYMENT_SUCCESS| TopicPay
+    Loan -.->|"Publishes LOAN_APPROVED / REJECTED"| TopicLoan
+    Payment -.->|"Publishes PAYMENT_SUCCESS"| TopicPay
 
-    TopicLoan -.->|Consume: <code>notification-service</code> group| Notification
-    TopicPay -.->|Consume: <code>notification-service</code> group| Notification
+    TopicLoan -.->|"Consumes"| Notification
+    TopicPay -.->|"Consumes"| Notification
 ```
-
----
 
 ## Tech Stack
 
-| Category | Technology | Version | Purpose in this Project |
+| Category | Technology | Version | Purpose in this project |
 | :--- | :--- | :--- | :--- |
-| **Language** | Java | 17 (OpenJDK / Temurin) | Primary application runtime across all microservices |
-| **Framework** | Spring Boot | 3.4.5 | Dependency injection, MVC REST APIs, and Actuator observability |
-| **API Gateway** | Spring Cloud Gateway | 2024.0.2 | Edge reverse proxy, unified route dispatch, and global CORS handling |
-| **Database** | PostgreSQL | 16 (Alpine) | Dedicated relational database per service (`authdb`, `customerdb`, etc.) |
-| **Data Persistence** | Hibernate / Spring Data JPA | 6.6.x (Boot BOM) | Entity-relational mapping, repositories, and transaction management |
-| **Schema Migration** | Flyway | 10.21.x (Boot BOM) | Automated, version-controlled SQL schema creation and seeding per DB |
-| **Event Streaming** | Apache Kafka | 3.8.1 (Bitnami KRaft) | Asynchronous pub/sub for loan status changes and payment events |
-| **Caching** | Redis | 7 (Alpine) | Cache-aside layer for active loan product catalog queries |
-| **Security & Auth** | Spring Security & JJWT | JJWT 0.12.6 | Stateless JWT generation, signature verification, and RBAC |
-| **API Documentation**| Springdoc OpenAPI | 2.8.6 | OpenAPI v3 specification and interactive Swagger UI per service |
-| **Frontend UI** | HTML5 / CSS3 / Vanilla JS | ES6 Modules | Reactive dashboard served via Nginx on port 3000 |
-| **Testing** | JUnit 5 & Mockito | 5.11.x / 5.14.x | Unit tests, mock injection, and business logic verification |
-
----
+| Runtime | Java | 17 | Core application runtime |
+| Framework | Spring Boot | 3.4.5 | Service framework, REST controllers, JPA repositories |
+| Gateway | Spring Cloud Gateway | 2024.0.2 | Reverse proxy, dynamic route dispatch, global CORS |
+| Database | PostgreSQL | 16-alpine | Primary relational datastore (isolated database per service) |
+| Persistence | Spring Data JPA / Hibernate | 6.6.x (Boot BOM) | ORM entities, repositories, and transaction boundaries |
+| Migrations | Flyway | 10.21.x (Boot BOM) | Versioned SQL migrations and seed data management |
+| Caching | Redis | 7-alpine | In-memory cache-aside layer for active loan products |
+| Messaging | Apache Kafka | 3.8.1 | Asynchronous pub/sub for loan status and payment events |
+| Security | Spring Security + JJWT | 0.12.6 | Stateless JWT issuance, role-based authorization filters |
+| API Docs | Springdoc OpenAPI | 2.8.6 | Interactive Swagger UI and OpenAPI 3 endpoints |
+| Testing | JUnit 5 + Mockito | 5.11 / 5.14 | Unit tests and isolated service layer validation |
+| Containers | Docker & Docker Compose | Compose v2 | Multi-container local orchestration and health checks |
+| Frontend | Vanilla JS / CSS / Nginx | ES6 / Alpine | Interactive single-page dashboard for end-to-end testing |
 
 ## Key Engineering Decisions
 
-- **Idempotency-Key Payment Deduplication** ([`PaymentService.java`](services/payment-service/src/main/java/com/rajvardhan/lending/payment/PaymentService.java#L21-L28), [`Payment.java`](services/payment-service/src/main/java/com/rajvardhan/lending/payment/Payment.java#L20-L21))
-  The payment endpoint mandates an `Idempotency-Key` HTTP header backed by a database unique constraint on `payments.idempotency_key`. The service looks up existing keys before processing; duplicate submissions return the original payment without re-charging or publishing duplicate Kafka events.
-  *Why this matters:* Eliminates double-debiting and ghost transactions caused by client network retries or gateway timeouts.
+- **Payment Idempotency via Unique Header & DB Constraint** (`PaymentService.java`, `Payment.java`)  
+  Every payment request requires an `Idempotency-Key` header. `PaymentService.pay()` checks `findByIdempotencyKey()` before persisting, backed by a `UNIQUE` index on the `idempotency_key` column. If a client retries due to a network drop or timeout, the existing transaction is returned without re-charging or firing duplicate Kafka events.  
+  *Why:* Prevents double-charging customers on client retries or transient network disconnects.
 
-- **Strict Database-per-Service Isolation** ([`init.sql`](infra/postgres/init.sql), [`docker-compose.yml`](docker-compose.yml#L57-L128))
-  Each service operates against its own distinct database schema (`authdb`, `customerdb`, `loandb`, `paymentdb`, `notificationdb`). Cross-boundary joins are prohibited; communication occurs strictly over REST contracts or Kafka events.
-  *Why this matters:* Guarantees bounded context isolation, prevents cross-service database lock contention, and enables services to scale or migrate storage independently.
+- **Strict Database-per-Service Isolation** (`infra/postgres/init.sql`, `docker-compose.yml`)  
+  Rather than sharing a single schema, the system provisions five distinct databases (`authdb`, `customerdb`, `loandb`, `paymentdb`, `notificationdb`). Services never query each other's tables directly and communicate strictly over REST APIs or Kafka events.  
+  *Why:* Preserves service boundaries and prevents cross-service database coupling or table-level locks between independent domains.
 
-- **Arbitrary-Precision Reducing-Balance EMI Math with Penny Re-absorption** ([`LoanService.java`](services/loan-service/src/main/java/com/rajvardhan/lending/loan/LoanService.java#L88-L107))
-  Installment amortization uses `BigDecimal` with 12 decimal places of precision (`RoundingMode.HALF_UP`) during monthly interest calculations and rounds installments to 2 decimal places. The final tenure installment directly assigns `principal = balance`.
-  *Why this matters:* Avoids cumulative binary floating-point drift (IEEE 754) and guarantees the sum of scheduled principal payments matches the disbursed loan amount down to the exact cent.
+- **BigDecimal Amortization with Final-Installment Adjustment** (`LoanService.java:generateSchedule`)  
+  EMI calculations use `BigDecimal` with 12 digits of intermediate precision (`RoundingMode.HALF_UP`) to compute reducing-balance interest without floating-point errors. On the final installment (`n == tenureMonths`), `principal = remaining balance` is explicitly set to absorb any fractional penny rounding differences.  
+  *Why:* Guarantees that the sum of principal payments exactly equals the disbursed loan amount, preventing financial rounding drift.
 
-- **Fault-Tolerant Cache-Aside with Graceful Fallback** ([`LoanService.java`](services/loan-service/src/main/java/com/rajvardhan/lending/loan/LoanService.java#L29-L40))
-  Active product listings leverage Redis key `loan-products:active` with a 10-minute TTL. The Redis lookup is wrapped in an exception fallback block that transparently executes a direct PostgreSQL query if Redis is unreachable.
-  *Why this matters:* Prevents cache outages from taking down the customer loan application flow, ensuring high availability under infrastructure degradation.
+- **Resilient Cache-Aside Pattern with DB Fallback** (`LoanService.java:activeProducts`)  
+  The loan catalog is cached in Redis with a 10-minute TTL. The Redis lookup is wrapped in a try/catch block so that if Redis is down or experiencing network issues, the service automatically falls back to querying PostgreSQL directly.  
+  *Why:* Prevents Redis from becoming a single point of failure for loan application browsing.
 
-- **Stateless Distributed Role Normalization** ([`SecurityConfig.java`](services/loan-service/src/main/java/com/rajvardhan/lending/loan/SecurityConfig.java#L20-L25), [`JwtAuthenticationFilter.java`](services/loan-service/src/main/java/com/rajvardhan/lending/loan/JwtAuthenticationFilter.java#L35-L42))
-  Services independently verify JWT HMAC-SHA signatures statelessly. Filters normalize authority strings to prevent duplicate `ROLE_ROLE_` prefixes while restricting state-transition operations (such as `/approve` and `/reject`) to `ADMIN` and `LOAN_OFFICER` roles.
-  *Why this matters:* Downstream microservices authorize requests locally without creating an RPC bottleneck back to `auth-service` for token validation.
-
----
+- **Stateless JWT Authorization with Local Role Parsing** (`SecurityConfig.java`, `JwtAuthenticationFilter.java`)  
+  Downstream services parse and validate signed JWTs locally using a shared HMAC secret. User identity and authorities (`ADMIN`, `LOAN_OFFICER`, `CUSTOMER`) are extracted in a `OncePerRequestFilter`, protecting admin endpoints like `/loans/{id}/approve` without hitting `auth-service` on every call.  
+  *Why:* Eliminates auth service bottleneck and inter-service latency on every authenticated request.
 
 ## API Documentation
 
-### Interactive Swagger UI Portals
-
-When running locally, Swagger / OpenAPI interfaces are accessible per microservice:
+Each service exposes interactive Swagger UI documentation locally:
 
 - **Auth Service**: [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
 - **Customer Service**: [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
@@ -121,28 +113,26 @@ When running locally, Swagger / OpenAPI interfaces are accessible per microservi
 - **Payment Service**: [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html)
 - **Notification Service**: [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
 
-### Core API Endpoints (via API Gateway `:8080`)
+### Primary Endpoints (Routed via Gateway `:8080`)
 
-| Method | Path | Required Headers / Auth | Description |
+| Method | Path | Auth / Headers | Purpose |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | None (Public) | Registers new user; returns signed JWT access token |
-| `GET` | `/api/v1/loans/products` | None (Public) | Retrieves active loan products with min/max bounds and interest rates |
-| `POST` | `/api/v1/loans/applications` | `Bearer <JWT>` (Customer) | Validates amount/tenure constraints and creates a `PENDING` loan application |
-| `POST` | `/api/v1/loans/{id}/approve` | `Bearer <JWT>` (`ADMIN`, `LOAN_OFFICER`) | Approves loan, generates amortized repayment schedule, and emits `loan.events` |
-| `POST` | `/api/v1/payments` | `Bearer <JWT>`, `Idempotency-Key: <UUID>` | Records loan repayment, validates deduplication key, and emits `payment.events` |
-| `GET` | `/api/v1/notifications?recipient={id}`| None (Internal/Gateway) | Queries asynchronous event-driven notifications generated for customer |
-
----
+| `POST` | `/api/v1/auth/register` | None (Public) | Register customer account and receive JWT access token |
+| `GET` | `/api/v1/loans/products` | None (Public) | Browse available loan products, rate, and tenure limits |
+| `POST` | `/api/v1/loans/applications` | `Bearer <token>` | Submit a loan application for a chosen product |
+| `POST` | `/api/v1/loans/{id}/approve` | `Bearer <token>` (`ADMIN`, `LOAN_OFFICER`) | Approve application, generate EMI schedule, and publish event |
+| `POST` | `/api/v1/payments` | `Bearer <token>`, `Idempotency-Key: <key>` | Submit loan installment repayment; publishes payment event |
+| `GET` | `/api/v1/notifications` | None / Query `?recipient={id}` | Retrieve generated in-app notifications |
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Java Development Kit (JDK)**: Version 17+
-- **Docker & Docker Compose**: Docker Engine 24+ with Compose v2
-- Maven is packaged via the included `./mvnw` wrapper.
+- JDK 17 or higher
+- Docker Engine 24+ and Docker Compose v2
+- Git
 
-### Step-by-Step Execution
+### Running Locally
 
 1. **Clone the repository**:
    ```bash
@@ -150,12 +140,12 @@ When running locally, Swagger / OpenAPI interfaces are accessible per microservi
    cd fintech-lending-platform
    ```
 
-2. **Compile and package all service JARs**:
+2. **Package the services** (builds JARs required by Dockerfiles):
    ```bash
    ./mvnw clean package -DskipTests
    ```
 
-3. **Launch the platform via Docker Compose**:
+3. **Start all services and infrastructure**:
    ```bash
    docker compose up --build
    ```
@@ -165,101 +155,78 @@ When running locally, Swagger / OpenAPI interfaces are accessible per microservi
    docker compose ps
    ```
 
-### Environment Variables
+### Environment Configuration
 
-Each microservice accepts production configuration overrides via environment variables:
+The containers use the following environment variables (defined in `docker-compose.yml`):
 
-| Variable | Default Value | Description |
+| Variable | Default (Local Compose) | Purpose |
 | :--- | :--- | :--- |
-| `DB_URL` | `jdbc:postgresql://postgres:5432/<db_name>` | JDBC database connection string |
-| `DB_USERNAME` | `lending` | PostgreSQL database user |
-| `DB_PASSWORD` | `lending_dev_password` | PostgreSQL database password |
-| `JWT_SECRET` | `change-me-in-development-only-change-me-in-production` | 256-bit secret key for HMAC-SHA token signing |
-| `REDIS_HOST` | `redis` | Redis host for product catalog caching |
-| `KAFKA_BOOTSTRAP`| `kafka:9092` | Kafka broker bootstrap server address |
-| `AUTH_URL` | `http://auth-service:8081` | Gateway route target for authentication service |
-| `CUSTOMER_URL` | `http://customer-service:8082` | Gateway route target for customer service |
-| `LOAN_URL` | `http://loan-service:8083` | Gateway route target for loan service |
-| `PAYMENT_URL` | `http://payment-service:8084` | Gateway route target for payment service |
-| `NOTIFICATION_URL`| `http://notification-service:8085` | Gateway route target for notification service |
+| `DB_URL` | `jdbc:postgresql://postgres:5432/<dbname>` | PostgreSQL database connection URL |
+| `DB_USERNAME` | `lending` | Database user |
+| `DB_PASSWORD` | `lending_dev_password` | Database password |
+| `JWT_SECRET` | `change-me-in-development-only-change-me-in-production` | Secret key for JWT signing/verification |
+| `REDIS_HOST` | `redis` | Redis host for loan catalog cache |
+| `KAFKA_BOOTSTRAP` | `kafka:9092` | Kafka bootstrap broker address |
+| `AUTH_URL`, `CUSTOMER_URL`, etc. | `http://<service-name>:<port>` | Gateway proxy routing targets |
 
-### Health Check Verification
+### Health Checks
 
-Test gateway routing and service health checks:
-
+Once started, verify health status:
 ```bash
-# Check API Gateway Health
-curl -s http://localhost:8080/actuator/health
-
-# Check Individual Domain Services
-curl -s http://localhost:8081/actuator/health
-curl -s http://localhost:8083/actuator/health
+curl http://localhost:8080/actuator/health   # Gateway
+curl http://localhost:8081/actuator/health   # Auth Service
+curl http://localhost:8083/actuator/health   # Loan Service
 ```
-*(All endpoints return `{"status":"UP"}` when operational.)*
 
-Open **[http://localhost:3000](http://localhost:3000)** in your browser to access the management UI.
+The frontend dashboard is available at [http://localhost:3000](http://localhost:3000).
 
-### Pre-Seeded Test Credentials
+### Seeded Credentials
 
-| Role | Email | Password | Allowed Operations |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `admin@lending.com` | `AdminPassword123` | View all applications, approve/reject loans |
-| **Loan Officer** | `officer@lending.com` | `OfficerPassword123` | View all applications, approve/reject loans |
-| **Customer** | Register via UI or API | Custom | Apply for loans, view personal schedule, make repayments |
-
----
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| Admin | `admin@lending.com` | `AdminPassword123` |
+| Loan Officer | `officer@lending.com` | `OfficerPassword123` |
+| Customer | Register any email via `/api/v1/auth/register` or frontend UI |
 
 ## Project Structure
 
 ```text
 fintech-lending-platform/
-├── pom.xml                         # Root parent POM managing dependencies, versions, and build plugins
-├── docker-compose.yml              # Local orchestration (Postgres, Redis, Kafka, 6 microservices, Web UI)
+├── pom.xml                   # Root Maven POM (manages dependencies & plugin versions)
+├── docker-compose.yml        # Orchestrates Postgres, Redis, Kafka, all 6 services & Web UI
 ├── infra/
-│   └── postgres/init.sql           # Database initialization script creating 5 isolated schemas
-├── frontend/                       # Lightweight reactive Web dashboard (ES6 modules, Nginx)
+│   └── postgres/init.sql     # Database setup script creating individual databases
+├── frontend/                 # Static dashboard served via Nginx (port 3000)
 └── services/
-    ├── api-gateway/                # Spring Cloud Gateway routing requests to downstream services
-    ├── auth-service/               # User authentication, registration, BCrypt hashing, and JWT issuance
-    ├── customer-service/           # Customer profile management and KYC tracking
-    ├── loan-service/               # Loan product catalog, application lifecycle, and EMI schedule generation
-    ├── payment-service/            # Repayment processing with Idempotency-Key deduplication
-    └── notification-service/       # Kafka event consumer recording in-app audit notifications
+    ├── api-gateway/          # Spring Cloud Gateway edge router (port 8080)
+    ├── auth-service/         # User registration, authentication & JWT issuance (port 8081)
+    ├── customer-service/     # Customer profiles and KYC records (port 8082)
+    ├── loan-service/         # Product catalog, applications & EMI calculations (port 8083)
+    ├── payment-service/      # Repayments with idempotency key deduplication (port 8084)
+    └── notification-service/ # Kafka event consumer persisting in-app alerts (port 8085)
 ```
-
----
 
 ## Testing
 
-Run the test suite across all 6 microservices using the Maven wrapper:
+Run tests across all modules using Maven:
 
 ```bash
 ./mvnw clean test
 ```
 
-### Test Coverage Summary
+### What's Tested
 
-- **Unit & Slice Testing**: Built using **JUnit 5** and **Mockito**.
-- **`auth-service`**:
-  - `AuthControllerTest`: Validates successful user registration, duplicate email rejection, BCrypt credential checks, and JWT response generation.
-  - `JwtServiceTest`: Tests HMAC token signing, claim extraction, and expiration validation.
-- **`customer-service`**:
-  - `CustomerControllerTest`: Verifies customer profile creation, duplicate user profile prevention, and KYC status initialization.
-- **`loan-service`**:
-  - `LoanServiceTest`: Asserts credit limit validation against product bounds, tenure boundaries, reducing-balance EMI schedule calculations, state-machine transition integrity, and Kafka `loan.events` emission.
-  - `LoanControllerTest`: Tests catalog retrieval, application submission, and repayment schedule queries.
-- **`payment-service`**:
-  - `PaymentServiceTest`: Verifies idempotency key deduplication (returns existing payment without re-executing business logic), negative/zero payment amount rejection, and `payment.events` publication.
-- **`notification-service`**:
-  - `EventConsumerTest`: Tests Kafka event deserialization for `LOAN_APPROVED` and `PAYMENT_SUCCESS` payloads into persistent notification records.
-  - `NotificationControllerTest`: Verifies notification querying by recipient and aggregate ID.
-- **`api-gateway`**:
-  - `GatewayRouteTest`: Verifies Spring context loading and gateway route definitions.
+Tests use JUnit 5 and Mockito to verify service logic and controller validation without requiring external infrastructure:
 
----
+- **auth-service** (`AuthControllerTest`, `JwtServiceTest`): Registration validation, duplicate email rejection, BCrypt password matching, and JWT claim parsing.
+- **customer-service** (`CustomerControllerTest`): Profile creation, KYC status assignment, and duplicate profile prevention.
+- **loan-service** (`LoanServiceTest`, `LoanControllerTest`): Product limit enforcement (min/max amount, tenure bounds), EMI schedule generation math, state transitions (`PENDING` -> `APPROVED`/`REJECTED`), and Kafka event publishing.
+- **payment-service** (`PaymentServiceTest`): Idempotency key handling (returning existing records on duplicate calls), rejection of non-positive amounts, and Kafka payment event dispatch.
+- **notification-service** (`EventConsumerTest`, `NotificationControllerTest`): Kafka listener ingestion for `loan.events` and `payment.events`, persistence of notification records, and recipient queries.
+- **api-gateway** (`GatewayRouteTest`): Spring context load and route configuration check.
 
 ## Live Demo
 
 Deployed at: [URL] (may be stopped outside active demo windows — see note below)
 
-> **Deployment Note:** This is a portfolio demonstration environment deployed on single-instance container infrastructure without multi-region clustering, automated horizontal pod autoscaling, or managed enterprise monitoring.
+> **Note:** This is a portfolio deployment hosted on single-instance container infrastructure, not a production-configured cluster with auto-scaling or high-availability monitoring.
